@@ -19,7 +19,7 @@
  * Difficulty: 1
  */
 int bitAnd(int x, int y) {
-    return 2;
+    return ~(~x|~y);
 }
 
 /*
@@ -30,7 +30,7 @@ int bitAnd(int x, int y) {
  *   Difficulty: 1
  */
 int bitXor(int x, int y) {
-    return 2;
+    return ~(~x&~y)&~(x&y);
 }
 
 /*
@@ -50,7 +50,7 @@ int bitXor(int x, int y) {
  *   1 if x and y have the same sign , 0 otherwise.
  */
 int samesign(int x, int y) {
-    return 2;
+    return (!((!x)^(!y)))&&(!((x>>31)^(y>>31)));
 }
 
 /*
@@ -63,7 +63,17 @@ int samesign(int x, int y) {
  *   Difficulty: 4
  */
 int logtwo(int v) {
-    return 2;
+    int b16=((v>>16)>0)<<4;
+    v>>=b16;
+    int b8=((v>>8)>0)<<3;
+    v>>=b8;
+    int b4=((v>>4)>0)<<2;
+    v>>=b4;
+    int b2=((v>>2)>0)<<1;
+    v>>=b2;
+    int b1=((v>>1)>0);
+    v>>=b1;
+    return b16|b8|b4|b2|b1;
 }
 
 /*
@@ -76,7 +86,13 @@ int logtwo(int v) {
  *    Difficulty: 2
  */
 int byteSwap(int x, int n, int m) {
-    return 2;
+    int N=n<<3;
+    int M=m<<3;
+    int i=0xFF&(x>>N);
+    int j=0xFF&(x>>M);
+    int a=j<<N;
+    int b=i<<M;
+    return (((x&~(0xFF<<N))|a)&~(0xFF<<M))|b;
 }
 
 /*
@@ -88,7 +104,17 @@ int byteSwap(int x, int n, int m) {
  *   Difficulty: 3
  */
 unsigned reverse(unsigned v) {
-    return 2;
+    int i=16;
+    while(i){
+        int a=i+15;
+        int b=16-i;
+        unsigned t=0x1;
+        unsigned k=(t&(v>>a))<<b;
+        unsigned l=(t&(v>>b))<<a;
+        v=((v&(~(t<<b))|k)&~(t<<a))|l;
+        i--;
+    }
+    return v;
 }
 
 /*
@@ -100,7 +126,8 @@ unsigned reverse(unsigned v) {
  *   Difficulty: 3
  */
 int logicalShift(int x, int n) {
-    return 2;
+    int mask = ~(((1 << 31) >> n) << 1);
+    return (x >> n) & mask;
 }
 
 /*
@@ -112,7 +139,31 @@ int logicalShift(int x, int n) {
  *   Difficulty: 4
  */
 int leftBitCount(int x) {
-    return 2;
+    /*int v=x;
+    int b16=(!(v>>16))<<4;
+    v<<=b16;
+    int b8=(!(v&0xff000000))<<3;
+    v<<=b8;
+    int b4=(!(v&0xf0000000))<<2;
+    v<<=b4;
+    int b2=(!(v&0xc0000000))<<1;
+    v<<=b2;
+    int b1=(!(v&0x80000000));
+    v<<=b1;
+    x=v;*/
+    int t=x;
+    int a16=!(~(0xffff|t))<<4;
+    t<<=a16;
+    int a8=!(~(0xffffff|t))<<3;
+    t<<=a8;
+    int a4=!(~(0xfffffff|t))<<2;
+    t<<=a4;
+    int a2=!(~(0x3fffffff|t))<<1;
+    t<<=a2;
+    int a1=!(~(0x7fffffff|t));
+    t<<=a1;
+    int a0=!(~(0x7fffffff|t));
+    return (a16+a8+a4+a2+a1+a0);
 }
 
 /*
@@ -124,9 +175,38 @@ int leftBitCount(int x) {
  *   Difficulty: 4
  */
 unsigned float_i2f(int x) {
-    return 2;
-}
+    unsigned c = (x >> 31) & 0x1;      
+    unsigned ux = x;
+    if (x == 0)
+        return 0;
+    if (c)
+        ux = ~ux + 1;                  
+    int count = 0;
+    int t = 0;
+    while (!t) {
+        count = count + 1;            
+        t = 0x1 & (ux >> (32 - count));
+    }
+    int E = 32 - count + 127;         
+    unsigned M;
+    if (count == 32)                   
+        M = 0;
+    else
+        M = ux << count;              
+    unsigned m = M >> 9;              
 
+    if (M & 0x100) {                   
+        if (M & 0xFF)                  
+            m = m + 1;
+        else if (m & 0x1)            
+            m = m + 1;
+    }
+    if (m == 0x800000) {             
+        m = 0;
+        E = E + 1;
+    }
+    return (c << 31) | (E << 23) | m;
+}
 /*
  * floatScale2 - Return bit-level equivalent of expression 2*f for
  *   floating point argument f.
@@ -139,8 +219,23 @@ unsigned float_i2f(int x) {
  *   Difficulty: 4
  */
 unsigned floatScale2(unsigned uf) {
-    return 2;
+    unsigned exp = (uf >> 23) & 0xFF;
+    unsigned frac = uf & 0x7FFFFF;
+    if (exp == 0xFF) return uf;
+    if (exp == 0) {
+        if (frac == 0) return uf;               
+        if (frac & 0x400000) {                  
+            return (uf & 0x80000000) | 0x00800000 | ((frac << 1) & 0x7FFFFF);
+        } else {
+            return (uf & 0x80000000) | (frac << 1);
+        }
+    }
+    if (exp == 0xFE) {
+        return (uf & 0x80000000) | 0x7F800000;
+    }
+    return uf + 0x00800000;
 }
+
 
 /*
  * float64_f2i - Convert a 64-bit IEEE 754 floating-point number to a 32-bit signed integer.
@@ -156,8 +251,41 @@ unsigned floatScale2(unsigned uf) {
  *   Difficulty: 3
  */
 int float64_f2i(unsigned uf1, unsigned uf2) {
-    return 2;
+    unsigned sign = uf2 >> 31;               
+    unsigned exp = (uf2 >> 20) & 0x7FF;      
+    unsigned fh = uf2 & 0xFFFFF;             
+    unsigned fl = uf1;                       
+    int E;
+    unsigned result;
+
+    if (!(exp - 0x7FF)) {
+        return 0x80000000;
+    }
+
+    if (!exp) {
+        return 0;
+    }
+
+    E = exp - 1023;                          
+
+    if (E < 0) {
+        return 0;
+    }
+    if (E >= 31) {
+        return 0x80000000;
+    }
+
+    if (E <= 20) {
+        result = (1 << E) + (fh >> (20 - E));
+    } else {
+        result = (1 << E) + (fh << (E - 20)) + (fl >> (52 - E));
+    }
+    if (sign) {
+        return ~result + 1;
+    }
+    return result;
 }
+
 
 /*
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -173,5 +301,10 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
  *   Difficulty: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if (x > 127) return 0x7F800000;
+    if (x < -149) return 0;
+    if (x >= -126) {
+        return (x + 127) << 23;
+    }
+    return 1 << (x + 149);
 }
